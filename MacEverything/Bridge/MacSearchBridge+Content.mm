@@ -33,6 +33,8 @@
         info.name = std::move(record.name);
         info.fullPath = SearchEngine::makeFullPath(record.path, info.name);
         info.fileType = record.type;
+        // Respect the user's ignore rules (they may have been added after indexing).
+        if (_serviceEngine->isPathIgnored(info.fullPath, record.type == 2 || record.type == 5)) continue;
         candidates.push_back(std::move(info));
     }
 
@@ -119,6 +121,30 @@
 - (uint64_t)contentGetMaxFileSize {
     auto contentIndex = _serviceEngine->safeContentIndex();
     return contentIndex ? contentIndex->getMaxFileSize() : (1 * 1024 * 1024);
+}
+
+- (NSArray<NSString *> *)contentGetIgnorePatterns {
+    auto patterns = _serviceEngine->getIgnorePatterns();
+    NSMutableArray<NSString *> *result = [NSMutableArray arrayWithCapacity:patterns.size()];
+    for (const auto& pattern : patterns) {
+        NSString *str = [NSString stringWithUTF8String:pattern.c_str()];
+        if (!str) continue;
+        [result addObject:str];
+    }
+    return result;
+}
+
+- (void)setContentIgnorePatterns:(NSArray<NSString *> *)patterns {
+    std::vector<std::string> lines;
+    lines.reserve(patterns.count);
+    for (NSString *pattern in patterns) {
+        lines.push_back(std::string([pattern UTF8String]));
+    }
+    _serviceEngine->setIgnorePatterns(lines);
+}
+
+- (void)contentSaveSettings {
+    _serviceEngine->saveContentSettings();
 }
 
 - (void)rebuildContentIndex {

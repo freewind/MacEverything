@@ -439,11 +439,23 @@ std::string HttpServer::handleContentSearch(
 
     auto matches = contentIndex->query(keyword, limit);
 
+    // Drop matches whose path the user asked to ignore.
+    std::unordered_set<uint32_t> allowed;
+    {
+        std::vector<uint32_t> matchedIndices;
+        matchedIndices.reserve(matches.size());
+        for (const auto& m : matches) matchedIndices.push_back(m.fileIndex);
+        for (uint32_t idx : engine->filterIgnored(std::move(matchedIndices))) {
+            allowed.insert(idx);
+        }
+    }
+
     std::ostringstream json;
     json << "{\"results\":[";
 
     bool first = true;
     for (const auto& match : matches) {
+        if (allowed.find(match.fileIndex) == allowed.end()) continue;
         FileRecord rec = engine->getRecord(match.fileIndex);
         if (rec.type == 0) continue; // tombstoned
         std::string dirPath = engine->resolveRecordPath(match.fileIndex);
@@ -541,6 +553,9 @@ std::string HttpServer::handleGetContentConfig() {
 
     auto exts = adminCallbacks_.onGetContentExtensions();
     uint64_t maxSize = adminCallbacks_.onGetContentMaxFileSize();
+    auto ignorePatterns = adminCallbacks_.onGetIgnorePatterns
+        ? adminCallbacks_.onGetIgnorePatterns()
+        : std::vector<std::string>{};
 
     std::ostringstream json;
     json << "{\"extensions\":[";
@@ -548,8 +563,38 @@ std::string HttpServer::handleGetContentConfig() {
         if (i > 0) json << ',';
         json << "\"" << jsonEscapeString(exts[i]) << "\"";
     }
-    json << "],\"maxFileSize\":" << maxSize << "}";
+    json << "],\"maxFileSize\":" << maxSize << ",\"ignorePatterns\":[";
+    for (size_t i = 0; i < ignorePatterns.size(); ++i) {
+        if (i > 0) json << ',';
+        json << "\"" << jsonEscapeString(ignorePatterns[i]) << "\"";
+    }
+    json << "]}";
     return jsonResponse(200, json.str());
+}
+
+/// Extract a JSON array of strings for `key` from a flat request body.
+/// Returns false when the key is absent (caller keeps its current value).
+static bool parseJsonStringArray(const std::string& body, const std::string& key,
+                                 std::vector<std::string>& out) {
+    auto keyPos = body.find("\"" + key + "\"");
+    if (keyPos == std::string::npos) return false;
+
+    auto arrStart = body.find('[', keyPos);
+    if (arrStart == std::string::npos) return false;
+    auto arrEnd = body.find(']', arrStart);
+    if (arrEnd == std::string::npos) return false;
+
+    std::string arrContent = body.substr(arrStart + 1, arrEnd - arrStart - 1);
+    size_t pos = 0;
+    while (pos < arrContent.size()) {
+        auto qStart = arrContent.find('"', pos);
+        if (qStart == std::string::npos) break;
+        auto qEnd = arrContent.find('"', qStart + 1);
+        if (qEnd == std::string::npos) break;
+        out.push_back(arrContent.substr(qStart + 1, qEnd - qStart - 1));
+        pos = qEnd + 1;
+    }
+    return true;
 }
 
 std::string HttpServer::handleSetContentConfig(const std::string& body) {
@@ -559,34 +604,15 @@ std::string HttpServer::handleSetContentConfig(const std::string& body) {
         return errorResponse(503, "Admin callbacks not configured");
     }
 
-    // Simple JSON parsing for {"extensions":["a","b"],"maxFileSize":123}
-    // Supports partial updates: only set fields present in the body.
+    // Simple JSON parsing for {"extensions":["a","b"],"maxFileSize":123,
+    //                             "ignorePatterns":["node_modules/"]}
+    // Supports partial updates: only fields present in the body are applied.
     auto currentExts = adminCallbacks_.onGetContentExtensions();
     uint64_t currentMaxSize = adminCallbacks_.onGetContentMaxFileSize();
 
     bool hasExtensions = false;
     std::vector<std::string> newExts;
-
-    // Parse "extensions":[...]
-    auto extPos = body.find("\"extensions\"");
-    if (extPos != std::string::npos) {
-        auto arrStart = body.find('[', extPos);
-        auto arrEnd = body.find(']', arrStart);
-        if (arrStart != std::string::npos && arrEnd != std::string::npos) {
-            hasExtensions = true;
-            std::string arrContent = body.substr(arrStart + 1, arrEnd - arrStart - 1);
-            // Extract quoted strings
-            size_t pos = 0;
-            while (pos < arrContent.size()) {
-                auto qStart = arrContent.find('"', pos);
-                if (qStart == std::string::npos) break;
-                auto qEnd = arrContent.find('"', qStart + 1);
-                if (qEnd == std::string::npos) break;
-                newExts.push_back(arrContent.substr(qStart + 1, qEnd - qStart - 1));
-                pos = qEnd + 1;
-            }
-        }
-    }
+    hasExtensions = parseJsonStringArray(body, "extensions", newExts);
 
     // Parse "maxFileSize":number
     uint64_t newMaxSize = currentMaxSize;
@@ -607,6 +633,22 @@ std::string HttpServer::handleSetContentConfig(const std::string& body) {
     const auto& finalExts = hasExtensions ? newExts : currentExts;
     adminCallbacks_.onSetContentConfig(finalExts, newMaxSize);
 
+    bool hasIgnore = false;
+    std::vector<std::string> newIgnore;
+    if (adminCallbacks_.onSetIgnorePatterns) {
+        hasIgnore = parseJsonStringArray(body, "ignorePatterns", newIgnore);
+        if (hasIgnore) {
+            adminCallbacks_.onSetIgnorePatterns(newIgnore);
+        }
+    }
+    if (adminCallbacks_.onSaveContentSettings) {
+        adminCallbacks_.onSaveContentSettings();
+    }
+
+    auto finalIgnore = adminCallbacks_.onGetIgnorePatterns
+        ? adminCallbacks_.onGetIgnorePatterns()
+        : std::vector<std::string>{};
+
     // Build response
     std::ostringstream json;
     json << "{\"message\":\"Content config updated\",\"extensions\":[";
@@ -614,7 +656,12 @@ std::string HttpServer::handleSetContentConfig(const std::string& body) {
         if (i > 0) json << ',';
         json << "\"" << jsonEscapeString(finalExts[i]) << "\"";
     }
-    json << "],\"maxFileSize\":" << newMaxSize << "}";
+    json << "],\"maxFileSize\":" << newMaxSize << ",\"ignorePatterns\":[";
+    for (size_t i = 0; i < finalIgnore.size(); ++i) {
+        if (i > 0) json << ',';
+        json << "\"" << jsonEscapeString(finalIgnore[i]) << "\"";
+    }
+    json << "]}";
     return jsonResponse(200, json.str());
 }
 

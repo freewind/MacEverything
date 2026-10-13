@@ -241,6 +241,24 @@
         return ci->getMaxFileSize();
     };
 
+    callbacks.onGetIgnorePatterns = [weakSelf]() -> std::vector<std::string> {
+        MacSearchBridge *strongSelf = weakSelf;
+        if (!strongSelf) return {};
+        return strongSelf->_serviceEngine->getIgnorePatterns();
+    };
+
+    callbacks.onSetIgnorePatterns = [weakSelf](const std::vector<std::string>& patterns) {
+        MacSearchBridge *strongSelf = weakSelf;
+        if (!strongSelf) return;
+        strongSelf->_serviceEngine->setIgnorePatterns(patterns);
+    };
+
+    callbacks.onSaveContentSettings = [weakSelf] {
+        MacSearchBridge *strongSelf = weakSelf;
+        if (!strongSelf) return;
+        strongSelf->_serviceEngine->saveContentSettings();
+    };
+
     _serviceEngine->adminCallbacks = std::move(callbacks);
 }
 

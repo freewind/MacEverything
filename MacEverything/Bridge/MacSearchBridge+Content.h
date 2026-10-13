@@ -23,6 +23,15 @@ NS_ASSUME_NONNULL_BEGIN
 /// Get current max file size for content indexing (bytes).
 - (uint64_t)contentGetMaxFileSize;
 
+/// Get current gitignore-style ignore patterns.
+- (NSArray<NSString *> *)contentGetIgnorePatterns;
+
+/// Replace the ignore patterns (gitignore syntax). Applies to indexing and search.
+- (void)setContentIgnorePatterns:(NSArray<NSString *> *)patterns;
+
+/// Persist the current content settings (extensions, max file size, ignore patterns).
+- (void)contentSaveSettings;
+
 /// Rebuild content index with current settings (clears old index, re-indexes all files).
 - (void)rebuildContentIndex;
 

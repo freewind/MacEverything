@@ -12,6 +12,7 @@
 #include <cstring>
 #include <dispatch/dispatch.h>
 #include <string>
+#include <vector>
 
 // ═══════════════════════════════════════════════════════
 //  Globals for signal handling
@@ -160,6 +161,15 @@ int main(int argc, char* argv[]) {
         auto ci = engine.safeContentIndex();
         if (!ci) return 0;
         return ci->getMaxFileSize();
+    };
+    callbacks.onGetIgnorePatterns = [&engine]() -> std::vector<std::string> {
+        return engine.getIgnorePatterns();
+    };
+    callbacks.onSetIgnorePatterns = [&engine](const std::vector<std::string>& patterns) {
+        engine.setIgnorePatterns(patterns);
+    };
+    callbacks.onSaveContentSettings = [&engine]() {
+        engine.saveContentSettings();
     };
 
     engine.adminCallbacks = std::move(callbacks);

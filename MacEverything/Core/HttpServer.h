@@ -20,6 +20,10 @@ public:
         std::function<void(const std::vector<std::string>&, uint64_t)> onSetContentConfig;
         std::function<std::vector<std::string>()> onGetContentExtensions;
         std::function<uint64_t()> onGetContentMaxFileSize;
+        std::function<std::vector<std::string>()> onGetIgnorePatterns;
+        std::function<void(const std::vector<std::string>&)> onSetIgnorePatterns;
+        /// Persist the current content settings to disk ("Save" semantics).
+        std::function<void()> onSaveContentSettings;
     };
 
     HttpServer() = default;
