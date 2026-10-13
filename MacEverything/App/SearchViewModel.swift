@@ -83,6 +83,18 @@ class SearchViewModel: ObservableObject {
         return (cacheDir as NSString).appendingPathComponent("index.bin")
     }
 
+    static var v6Path: String {
+        return (cacheDir as NSString).appendingPathComponent("index.v6")
+    }
+
+    static var contentIndexPath: String {
+        return (cacheDir as NSString).appendingPathComponent("content_index.bin")
+    }
+
+    static var contentIndexWalPath: String {
+        return (cacheDir as NSString).appendingPathComponent("content_index.wal")
+    }
+
     static var walPath: String {
         return (cacheDir as NSString).appendingPathComponent("index.wal")
     }
@@ -184,11 +196,18 @@ class SearchViewModel: ObservableObject {
         isContentSearch = false
         contentKeyword = ""
 
-        // Delete cached index files so startIncremental does a full scan
+        // Delete cached index files so startIncremental does a full scan.
+        // index.v6 is the primary format — leaving it behind would reload the
+        // old record set instead of rescanning.
         try? FileManager.default.removeItem(atPath: Self.cachePath)
         try? FileManager.default.removeItem(atPath: Self.walPath)
         try? FileManager.default.removeItem(atPath: Self.pagesPath)
         try? FileManager.default.removeItem(atPath: Self.ptablePath)
+        try? FileManager.default.removeItem(atPath: Self.v6Path)
+        // Drop the content index too: its entries reference record indices that
+        // a rescan renumbers, so it must be rebuilt from scratch.
+        try? FileManager.default.removeItem(atPath: Self.contentIndexPath)
+        try? FileManager.default.removeItem(atPath: Self.contentIndexWalPath)
 
         startIncremental()
     }

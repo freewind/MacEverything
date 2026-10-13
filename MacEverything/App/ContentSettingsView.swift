@@ -5,9 +5,12 @@ struct ContentSettingsView: View {
     @State private var newExtension: String = ""
     @State private var maxFileSizeMB: Double = 1.0
     @State private var indexedCount: UInt32 = 0
+    @State private var ignoreText: String = ""
+    @State private var statusMessage: String = ""
 
     @State private var initialExtensions: [String] = []
     @State private var initialMaxFileSizeMB: Double = 1.0
+    @State private var initialIgnoreText: String = ""
 
     private let bridge = MacSearchBridge.shared()
 
@@ -65,24 +68,69 @@ struct ContentSettingsView: View {
                 }
             }
 
+            Section("Ignore Paths") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("One gitignore-style pattern per line. Ignored files and folders are skipped by indexing and search.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    TextEditor(text: $ignoreText)
+                        .font(.system(.caption, design: .monospaced))
+                        .frame(minHeight: 110)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(Color.secondary.opacity(0.35), lineWidth: 1)
+                        )
+
+                    Text("Examples: node_modules/   *.log   /build   !keep.log")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             Section {
-                Button("Apply") {
-                    applySettings()
+                HStack {
+                    Button("Save") { saveSettings() }
+                    Button("Reindex") { reindex() }
+                    Spacer()
+                    if !statusLabel.isEmpty {
+                        Text(statusLabel)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
         }
         .padding()
-        .frame(width: 400, height: 420)
+        .frame(width: 420, height: 620)
         .onAppear { loadSettings() }
+    }
+
+    private var ignoreLines: [String] {
+        ignoreText.components(separatedBy: "\n")
+    }
+
+    private var isDirty: Bool {
+        extensions != initialExtensions
+            || maxFileSizeMB != initialMaxFileSizeMB
+            || ignoreText != initialIgnoreText
+    }
+
+    private var statusLabel: String {
+        if !statusMessage.isEmpty { return statusMessage }
+        return isDirty ? "Unsaved changes" : ""
     }
 
     private func loadSettings() {
         indexedCount = bridge.contentIndexedFileCount()
         extensions = (bridge.contentGetExtensions() as? [String]) ?? []
         maxFileSizeMB = Double(bridge.contentGetMaxFileSize()) / (1024.0 * 1024.0)
+        let patterns = (bridge.contentGetIgnorePatterns() as? [String]) ?? []
+        ignoreText = patterns.joined(separator: "\n")
 
         initialExtensions = extensions
         initialMaxFileSizeMB = maxFileSizeMB
+        initialIgnoreText = ignoreText
     }
 
     private func addExtension() {
@@ -98,15 +146,27 @@ struct ContentSettingsView: View {
     }
 
     private func applySettings() {
-        let dirty = extensions != initialExtensions || maxFileSizeMB != initialMaxFileSizeMB
-        guard dirty else { return }
         bridge.setContentMaxFileSize(UInt64(maxFileSizeMB * 1024 * 1024))
         bridge.setContentExtensions(extensions)
-        DispatchQueue.global().async {
-            bridge.rebuildContentIndex()
-        }
+        bridge.setContentIgnorePatterns(ignoreLines)
+        bridge.contentSaveSettings()
+
         initialExtensions = extensions
         initialMaxFileSizeMB = maxFileSizeMB
+        initialIgnoreText = ignoreText
+    }
+
+    private func saveSettings() {
+        applySettings()
+        statusMessage = "Saved"
+    }
+
+    private func reindex() {
+        applySettings()
+        statusMessage = "Reindexing…"
+        // Rebuild the saved index so ignored paths leave it. ContentView owns the
+        // rescan pipeline; a notification keeps both indexes in sync.
+        NotificationCenter.default.post(name: .rebuildIndex, object: nil)
     }
 }
 
