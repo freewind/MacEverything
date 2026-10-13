@@ -12,6 +12,12 @@
 
 static constexpr size_t ATTR_BUF_SIZE = 1 * 1024 * 1024; // 1 MB per-thread buffer
 
+void DirectoryScanner::setIgnoreMatcher(std::shared_ptr<const IgnoreMatcher> matcher,
+                                        std::string ignoreBasePath) {
+    ignoreMatcher_ = std::move(matcher);
+    ignoreBasePath_ = std::move(ignoreBasePath);
+}
+
 void DirectoryScanner::scan(const std::string& rootPath) {
     // Reset state so scanner can be reused across multiple scans
     done_.store(false, std::memory_order_relaxed);
@@ -38,6 +44,12 @@ void DirectoryScanner::scan(const std::string& rootPath) {
         rootDevId_ = rootStat.st_dev;
     } else {
         rootDevId_ = 0; // disable cross-mount filtering if stat fails
+    }
+
+    // Ignore patterns are relative to the app-wide scan root; fall back to the
+    // scanned root when the caller did not specify one.
+    if (ignoreBasePath_.empty()) {
+        ignoreBasePath_ = rootPath;
     }
 
     unsigned numThreads = std::thread::hardware_concurrency();
@@ -131,6 +143,8 @@ void DirectoryScanner::workerThread(int threadIndex) {
 
 void DirectoryScanner::scanDirectory(const std::string& dirPath, char* buffer, int threadIndex) {
     if (cancelled_.load(std::memory_order_relaxed)) return;
+
+    const bool ignoreActive = ignoreMatcher_ && !ignoreMatcher_->isEmpty();
 
     int dirfd = open(dirPath.c_str(), O_RDONLY | O_DIRECTORY);
     if (dirfd < 0) {
@@ -254,6 +268,17 @@ void DirectoryScanner::scanDirectory(const std::string& dirPath, char* buffer, i
             if (name[0] == '\0') {
                 entry = nextEntry;
                 continue;
+            }
+
+            // Skip entries excluded by the user's gitignore-style rules.
+            if (ignoreActive) {
+                std::string entryPath = dirPath;
+                if (entryPath.back() != '/') entryPath += '/';
+                entryPath += name;
+                if (ignoreMatcher_->isIgnoredFullPath(ignoreBasePath_, entryPath, objtype == VDIR)) {
+                    entry = nextEntry;
+                    continue;
+                }
             }
 
             // Process entry

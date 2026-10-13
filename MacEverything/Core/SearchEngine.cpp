@@ -780,15 +780,45 @@ void SearchEngine::detachWAL() {
 }
 
 std::vector<uint32_t> SearchEngine::recentIndices(uint32_t count) const {
-    std::shared_lock lock(mutex_);
     std::vector<uint32_t> result;
-    uint32_t n = std::min(count, static_cast<uint32_t>(recentCache_.size()));
-    result.reserve(n);
-    auto it = recentCache_.begin();
-    for (uint32_t i = 0; i < n; ++i, ++it) {
-        result.push_back(it->index);
+    {
+        std::shared_lock lock(mutex_);
+        uint32_t n = std::min(count, static_cast<uint32_t>(recentCache_.size()));
+        result.reserve(n);
+        auto it = recentCache_.begin();
+        for (uint32_t i = 0; i < n; ++i, ++it) {
+            result.push_back(it->index);
+        }
     }
-    return result;
+    return filterIgnored(std::move(result));
+}
+
+void SearchEngine::setIgnoreMatcher(std::shared_ptr<const IgnoreMatcher> matcher,
+                                    std::string ignoreBasePath) {
+    std::lock_guard lock(ignoreMutex_);
+    ignoreMatcher_ = std::move(matcher);
+    ignoreBasePath_ = std::move(ignoreBasePath);
+}
+
+std::vector<uint32_t> SearchEngine::filterIgnored(std::vector<uint32_t> indices) const {
+    std::shared_ptr<const IgnoreMatcher> matcher;
+    std::string basePath;
+    {
+        std::lock_guard lock(ignoreMutex_);
+        matcher = ignoreMatcher_;
+        basePath = ignoreBasePath_;
+    }
+    if (!matcher || matcher->isEmpty() || indices.empty()) return indices;
+
+    std::vector<uint32_t> kept;
+    kept.reserve(indices.size());
+    forEachRecordWithPath(indices, [&](uint32_t idx, const FileRecord& record, const std::string& path) {
+        std::string fullPath = makeFullPath(path, record.name);
+        bool isDir = (record.type == 2 || record.type == 5);
+        if (matcher->isIgnoredFullPath(basePath, fullPath, isDir)) return;
+        kept.push_back(idx);
+    });
+    return kept;
 }
 
 std::set<SearchEngine::RecentEntry>

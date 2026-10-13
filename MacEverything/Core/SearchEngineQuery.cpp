@@ -235,6 +235,8 @@ std::vector<uint32_t> SearchEngine::query(const std::string& keyword, uint32_t m
         for (size_t i = 0; i < resultCount; i++) {
             result.push_back(merged[i].idx);
         }
+        // Drop records the user asked to ignore (safe here — lock is released).
+        result = filterIgnored(std::move(result));
 
         // Populate timing
         auto toMs = [](auto dur) { return std::chrono::duration<double, std::milli>(dur).count(); };
@@ -249,7 +251,7 @@ std::vector<uint32_t> SearchEngine::query(const std::string& keyword, uint32_t m
     }
 
     // All non-DIR_LIST queries go through the unified Advanced path
-    return queryAdvanced(pq.original, maxResults, useTrigram, timing, myGen, genAtom.get());
+    return filterIgnored(queryAdvanced(pq.original, maxResults, useTrigram, timing, myGen, genAtom.get()));
 }
 
 // ---------------------------------------------------------------------------

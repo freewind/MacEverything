@@ -5,6 +5,7 @@
 #include "IndexPersistence.h"
 #include "FileSystemWatcher.h"
 #include "HttpServer.h"
+#include "IgnoreMatcher.h"
 #include "InstanceLock.h"
 #include "RescanDebounce.h"
 #include <memory>
@@ -14,6 +15,7 @@
 #include <chrono>
 #include <functional>
 #include <string>
+#include <vector>
 #include <dispatch/dispatch.h>
 
 /// Configuration for ServiceEngine.
@@ -55,6 +57,19 @@ public:
     void rebuildContentIndex();
     void compactIndex();
 
+    // ── Ignore rules (gitignore syntax) ──
+    /// Replace the active ignore rules and apply them to indexing and search.
+    void setIgnorePatterns(const std::vector<std::string>& patterns);
+    std::vector<std::string> getIgnorePatterns();
+    /// True when fullPath matches the active ignore rules.
+    bool isPathIgnored(const std::string& fullPath, bool isDir);
+
+    // ── Persisted content settings ──
+    /// Path of the settings file (cachePath/content_settings.conf).
+    std::string contentSettingsPath() const;
+    void loadContentSettings();
+    void saveContentSettings();
+
     // ── Thread-safe accessors ──
     std::shared_ptr<SearchEngine> safeEngine();
     std::shared_ptr<ContentIndex> safeContentIndex();
@@ -79,6 +94,11 @@ public:
     HttpServer::AdminCallbacks adminCallbacks;
 
 private:
+    // ── Ignore helpers (ServiceEngine+Ignore.cpp) ──
+    std::shared_ptr<const IgnoreMatcher> ignoreMatcherSnapshot();
+    void applyIgnoreToEngine(const std::shared_ptr<SearchEngine>& engine);
+    void applyIgnoreToContentIndex(const std::shared_ptr<ContentIndex>& contentIndex);
+
     // ── Internal methods (ServiceEngine.cpp) ──
     void setEngine(std::shared_ptr<SearchEngine> engine);
     void setPersistence(std::shared_ptr<IndexPersistence> persistence);
@@ -125,6 +145,11 @@ private:
     std::shared_mutex contentMutex_;
     std::shared_mutex persistenceMutex_;
     std::shared_mutex contentPersistenceMutex_;
+
+    // ── Ignore rules ──
+    mutable std::shared_mutex ignoreMutex_;
+    std::shared_ptr<const IgnoreMatcher> ignoreMatcher_;
+    std::vector<std::string> ignorePatterns_;
 
     // ── Dispatch queues & groups ──
     dispatch_queue_t mutationQueue_;

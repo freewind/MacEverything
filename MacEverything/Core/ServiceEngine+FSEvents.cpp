@@ -51,6 +51,10 @@ void ServiceEngine::applyFSEvents(
             else if (S_ISDIR(st.st_mode))   type = pathEndsWithApp(path) ? 5 : 2;
             else if (S_ISLNK(st.st_mode))   type = 3;
 
+            // Ignored paths never enter the index. Removal events are still
+            // applied above so records left over from an older rule set go away.
+            if (isPathIgnored(path, type == 2 || type == 5)) continue;
+
             FileRecord record;
             record.name = fileName;
             record.path = dirPath;
@@ -115,7 +119,7 @@ void ServiceEngine::startMonitoring() {
             if (isInsideAppBundle(path)) continue;
 
             if (flags & kFSEventStreamEventFlagMustScanSubDirs) {
-                rescanDirs.push_back(path);
+                if (!isPathIgnored(path, true)) rescanDirs.push_back(path);
                 continue;
             }
 
@@ -145,6 +149,9 @@ void ServiceEngine::startMonitoring() {
                 if (S_ISREG(st.st_mode))       type = 1;
                 else if (S_ISDIR(st.st_mode))   type = pathEndsWithApp(fileName) ? 5 : 2;
                 else if (S_ISLNK(st.st_mode))   type = 3;
+
+                // Ignored paths never enter the index (removals above still apply).
+                if (isPathIgnored(path, type == 2 || type == 5)) continue;
 
                 FileRecord record;
                 record.name = fileName;
@@ -312,6 +319,7 @@ void ServiceEngine::rescanSubtree(const std::string& dir) {
         if (shuttingDown_.load(std::memory_order_relaxed)) return;
 
         auto scanner = std::make_shared<DirectoryScanner>();
+        scanner->setIgnoreMatcher(ignoreMatcherSnapshot(), config_.scanRoot);
         scanner->scan(dir);
         auto freshRecords = scanner->takeResults();
 

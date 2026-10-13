@@ -1,10 +1,12 @@
 #pragma once
+#include "IgnoreMatcher.h"
 #include <string>
 #include <vector>
 #include <cstdint>
 #include <shared_mutex>
 #include <unordered_map>
 #include <unordered_set>
+#include <memory>
 #include <mutex>
 #include <cstdio>
 
@@ -61,6 +63,10 @@ public:
 
     /// Set maximum file size to index (bytes). Default 1MB.
     void setMaxFileSize(uint64_t bytes);
+
+    /// Skip files whose full path matches the gitignore-style ignore rules.
+    /// `ignoreBasePath` is the root the patterns are relative to.
+    void setIgnoreMatcher(std::shared_ptr<const IgnoreMatcher> matcher, std::string ignoreBasePath);
 
     /// Get current extensions list.
     std::vector<std::string> getExtensions() const;
@@ -135,6 +141,10 @@ private:
     // Configuration
     std::unordered_set<std::string> extensions_;
     uint64_t maxFileSize_ = 1 * 1024 * 1024; // 1MB
+
+    // User ignore rules (gitignore syntax), guarded by mutex_
+    std::shared_ptr<const IgnoreMatcher> ignoreMatcher_;
+    std::string ignoreBasePath_;
 
     mutable std::shared_mutex mutex_;
 

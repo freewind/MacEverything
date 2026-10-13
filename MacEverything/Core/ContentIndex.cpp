@@ -36,6 +36,13 @@ void ContentIndex::setMaxFileSize(uint64_t bytes) {
     maxFileSize_ = bytes;
 }
 
+void ContentIndex::setIgnoreMatcher(std::shared_ptr<const IgnoreMatcher> matcher,
+                                    std::string ignoreBasePath) {
+    std::unique_lock lock(mutex_);
+    ignoreMatcher_ = std::move(matcher);
+    ignoreBasePath_ = std::move(ignoreBasePath);
+}
+
 std::vector<std::string> ContentIndex::getExtensions() const {
     std::shared_lock lock(mutex_);
     return std::vector<std::string>(extensions_.begin(), extensions_.end());
@@ -251,9 +258,13 @@ std::string ContentIndex::generateSnippet(const std::string& path,
 // --- Indexing ---
 
 bool ContentIndex::indexFile(uint32_t fileIndex, const std::string& fullPath, time_t modTime) {
-    // Check extension (read lock for config)
+    // Check extension and user ignore rules (read lock for config)
     {
         std::shared_lock lock(mutex_);
+        if (ignoreMatcher_ && !ignoreMatcher_->isEmpty() &&
+            ignoreMatcher_->isIgnoredFullPath(ignoreBasePath_, fullPath, false)) {
+            return false;
+        }
         // Extract filename from path
         size_t lastSlash = fullPath.rfind('/');
         std::string filename = (lastSlash != std::string::npos) ? fullPath.substr(lastSlash + 1) : fullPath;

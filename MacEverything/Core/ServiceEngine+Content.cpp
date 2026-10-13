@@ -15,6 +15,9 @@ void ServiceEngine::setupContentPersistence() {
     auto engine = safeEngine();
     if (!contentIndex || !engine) return;
 
+    // Keep the current ignore rules applied to whichever ContentIndex is live.
+    applyIgnoreToContentIndex(contentIndex);
+
     std::string cacheDir = config_.cachePath;
     fs::create_directories(cacheDir);
 
@@ -201,6 +204,7 @@ void ServiceEngine::rebuildContentIndex() {
         auto newIndex = std::make_shared<ContentIndex>();
         newIndex->setExtensions(exts);
         newIndex->setMaxFileSize(maxSize);
+        newIndex->setIgnoreMatcher(ignoreMatcherSnapshot(), config_.scanRoot);
 
         std::unique_lock lock(contentMutex_);
         contentIndex_ = newIndex;

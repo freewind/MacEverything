@@ -36,6 +36,9 @@ std::shared_ptr<SearchEngine> ServiceEngine::safeEngine() {
 }
 
 void ServiceEngine::setEngine(std::shared_ptr<SearchEngine> engine) {
+    // Propagate the active ignore rules before publishing the engine so no
+    // query can observe an engine without the current filter.
+    applyIgnoreToEngine(engine);
     std::unique_lock lock(engineMutex_);
     engine_ = engine;
 }
@@ -101,11 +104,16 @@ void ServiceEngine::startFullScan(StartupCallback completion) {
     isScanning_.store(true, std::memory_order_relaxed);
     stopMonitoring();
 
+    // Apply persisted content settings (extensions, max size, ignore rules)
+    // before any indexing starts.
+    loadContentSettings();
+
     LOG_INFO("ServiceEngine", "startFullScan from: " << config_.scanRoot);
 
     dispatch_group_async(backgroundGroup_, dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         auto scanStart = std::chrono::steady_clock::now();
         auto scanner = std::make_shared<DirectoryScanner>();
+        scanner->setIgnoreMatcher(ignoreMatcherSnapshot(), config_.scanRoot);
 
         // Progress polling timer
         dispatch_source_t timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0,
@@ -173,6 +181,9 @@ void ServiceEngine::startIncremental(StartupCallback completion) {
     }
 
     LOG_INFO("ServiceEngine", "startIncremental from: " << config_.scanRoot);
+
+    // Apply persisted content settings before the index is served or rebuilt.
+    loadContentSettings();
 
     dispatch_group_async(backgroundGroup_, dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         auto incrementalStart = std::chrono::steady_clock::now();
@@ -330,6 +341,7 @@ void ServiceEngine::backgroundSyncEngine(
         LOG_WARN("ServiceEngine", "FSEvents replay failed — background full scan");
 
         auto scanner = std::make_shared<DirectoryScanner>();
+        scanner->setIgnoreMatcher(ignoreMatcherSnapshot(), config_.scanRoot);
 
         // Progress reporting
         std::weak_ptr<DirectoryScanner> scannerWeak = scanner;
