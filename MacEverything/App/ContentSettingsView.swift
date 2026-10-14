@@ -7,6 +7,7 @@ struct ContentSettingsView: View {
     @State private var indexedCount: UInt32 = 0
     @State private var ignoreText: String = ""
     @State private var statusMessage: String = ""
+    @State private var showReindexConfirmation: Bool = false
 
     @State private var initialExtensions: [String] = []
     @State private var initialMaxFileSizeMB: Double = 1.0
@@ -96,7 +97,7 @@ struct ContentSettingsView: View {
             Section {
                 HStack {
                     Button("Save") { saveSettings() }
-                    Button("Reindex") { reindex() }
+                    Button("Reindex") { showReindexConfirmation = true }
                     Spacer()
                     if !statusLabel.isEmpty {
                         Text(statusLabel)
@@ -109,6 +110,12 @@ struct ContentSettingsView: View {
         .padding()
         .frame(width: 420, height: 620)
         .onAppear { loadSettings() }
+        .alert("Reindex the whole index?", isPresented: $showReindexConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Reindex", role: .destructive) { reindex() }
+        } message: {
+            Text("This rescans every file from disk and can take a long time. Ignore rules already apply to search right after Save — reindex only when you want ignored entries physically removed from the stored index.")
+        }
     }
 
     private var ignoreLines: [String] {
