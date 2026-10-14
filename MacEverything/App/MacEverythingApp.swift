@@ -45,6 +45,10 @@ struct MacEverythingApp: App {
                     ContentSettingsWindowController.shared.showWindow()
                 }
 
+                Button("Ignore Settings...") {
+                    IgnoreSettingsWindowController.shared.showWindow()
+                }
+
                 Divider()
 
                 Menu("MCP Integration") {
@@ -62,7 +66,7 @@ struct MacEverythingApp: App {
 
 extension Notification.Name {
     static let rebuildIndex = Notification.Name("rebuildIndex")
-    /// Content settings (ignore rules) changed — re-run the current query only.
+    /// Ignore rules changed — re-run the current query only, no reindex.
     static let contentSettingsChanged = Notification.Name("contentSettingsChanged")
 }
 
@@ -80,6 +84,27 @@ class ContentSettingsWindowController {
         let hostingController = NSHostingController(rootView: settingsView)
         let win = NSWindow(contentViewController: hostingController)
         win.title = "Content Settings"
+        win.styleMask = [.titled, .closable]
+        win.center()
+        win.makeKeyAndOrderFront(nil)
+        window = win
+    }
+}
+
+class IgnoreSettingsWindowController {
+    static let shared = IgnoreSettingsWindowController()
+    private var window: NSWindow?
+
+    func showWindow() {
+        if let existing = window, existing.isVisible {
+            existing.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        let settingsView = IgnoreSettingsView()
+        let hostingController = NSHostingController(rootView: settingsView)
+        let win = NSWindow(contentViewController: hostingController)
+        win.title = "Ignore Settings"
         win.styleMask = [.titled, .closable]
         win.center()
         win.makeKeyAndOrderFront(nil)

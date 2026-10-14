@@ -5,13 +5,9 @@ struct ContentSettingsView: View {
     @State private var newExtension: String = ""
     @State private var maxFileSizeMB: Double = 1.0
     @State private var indexedCount: UInt32 = 0
-    @State private var ignoreText: String = ""
-    @State private var statusMessage: String = ""
-    @State private var showReindexConfirmation: Bool = false
 
     @State private var initialExtensions: [String] = []
     @State private var initialMaxFileSizeMB: Double = 1.0
-    @State private var initialIgnoreText: String = ""
 
     private let bridge = MacSearchBridge.shared()
 
@@ -69,80 +65,24 @@ struct ContentSettingsView: View {
                 }
             }
 
-            Section("Ignore Paths") {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("One gitignore-style pattern per line. Ignored files and folders are skipped by indexing and search.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    TextEditor(text: $ignoreText)
-                        .font(.system(.caption, design: .monospaced))
-                        .frame(minHeight: 110)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 6)
-                                .stroke(Color.secondary.opacity(0.35), lineWidth: 1)
-                        )
-
-                    Text("Examples: node_modules/   *.log   **/pnpm/store/   ~/tmp/   /build   !keep.log")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-
-                    Text("Save makes the rules apply to search right away — existing index entries are just filtered out. Reindex is only needed to physically drop them from the stored index, and takes much longer.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-
             Section {
-                HStack {
-                    Button("Save") { saveSettings() }
-                    Button("Reindex") { showReindexConfirmation = true }
-                    Spacer()
-                    if !statusLabel.isEmpty {
-                        Text(statusLabel)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                Button("Apply") {
+                    applySettings()
                 }
             }
         }
         .padding()
-        .frame(width: 420, height: 620)
+        .frame(width: 400, height: 420)
         .onAppear { loadSettings() }
-        .alert("Reindex the whole index?", isPresented: $showReindexConfirmation) {
-            Button("Cancel", role: .cancel) {}
-            Button("Reindex", role: .destructive) { reindex() }
-        } message: {
-            Text("This rescans every file from disk and can take a long time. Ignore rules already apply to search right after Save — reindex only when you want ignored entries physically removed from the stored index.")
-        }
-    }
-
-    private var ignoreLines: [String] {
-        ignoreText.components(separatedBy: "\n")
-    }
-
-    private var isDirty: Bool {
-        extensions != initialExtensions
-            || maxFileSizeMB != initialMaxFileSizeMB
-            || ignoreText != initialIgnoreText
-    }
-
-    private var statusLabel: String {
-        if !statusMessage.isEmpty { return statusMessage }
-        return isDirty ? "Unsaved changes" : ""
     }
 
     private func loadSettings() {
         indexedCount = bridge.contentIndexedFileCount()
         extensions = (bridge.contentGetExtensions() as? [String]) ?? []
         maxFileSizeMB = Double(bridge.contentGetMaxFileSize()) / (1024.0 * 1024.0)
-        let patterns = (bridge.contentGetIgnorePatterns() as? [String]) ?? []
-        ignoreText = patterns.joined(separator: "\n")
 
         initialExtensions = extensions
         initialMaxFileSizeMB = maxFileSizeMB
-        initialIgnoreText = ignoreText
     }
 
     private func addExtension() {
@@ -158,31 +98,17 @@ struct ContentSettingsView: View {
     }
 
     private func applySettings() {
+        let dirty = extensions != initialExtensions || maxFileSizeMB != initialMaxFileSizeMB
+        guard dirty else { return }
         bridge.setContentMaxFileSize(UInt64(maxFileSizeMB * 1024 * 1024))
         bridge.setContentExtensions(extensions)
-        bridge.setContentIgnorePatterns(ignoreLines)
+        // Persist the content settings so they survive a restart.
         bridge.contentSaveSettings()
-
+        DispatchQueue.global().async {
+            bridge.rebuildContentIndex()
+        }
         initialExtensions = extensions
         initialMaxFileSizeMB = maxFileSizeMB
-        initialIgnoreText = ignoreText
-    }
-
-    private func saveSettings() {
-        applySettings()
-        statusMessage = "Saved"
-        // Query-side effect only: re-run the current search so the new rules
-        // take effect without waiting for a reindex.
-        NotificationCenter.default.post(name: .contentSettingsChanged, object: nil)
-    }
-
-    private func reindex() {
-        applySettings()
-        statusMessage = "Reindexing…"
-        NotificationCenter.default.post(name: .contentSettingsChanged, object: nil)
-        // Rebuild the saved index so ignored paths leave it. ContentView owns the
-        // rescan pipeline; a notification keeps both indexes in sync.
-        NotificationCenter.default.post(name: .rebuildIndex, object: nil)
     }
 }
 
