@@ -267,6 +267,9 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .rebuildIndex)) { _ in
             viewModel.rebuildIndex()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .contentSettingsChanged)) { _ in
+            viewModel.refreshAfterContentSettingsChange()
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             viewModel.onWindowFocusChanged(true)
             isSearchFieldFocused = true

@@ -85,6 +85,11 @@ struct ContentSettingsView: View {
                     Text("Examples: node_modules/   *.log   /build   !keep.log")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
+
+                    Text("Save makes the rules apply to search right away — existing index entries are just filtered out. Reindex is only needed to physically drop them from the stored index, and takes much longer.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
@@ -159,11 +164,15 @@ struct ContentSettingsView: View {
     private func saveSettings() {
         applySettings()
         statusMessage = "Saved"
+        // Query-side effect only: re-run the current search so the new rules
+        // take effect without waiting for a reindex.
+        NotificationCenter.default.post(name: .contentSettingsChanged, object: nil)
     }
 
     private func reindex() {
         applySettings()
         statusMessage = "Reindexing…"
+        NotificationCenter.default.post(name: .contentSettingsChanged, object: nil)
         // Rebuild the saved index so ignored paths leave it. ContentView owns the
         // rescan pipeline; a notification keeps both indexes in sync.
         NotificationCenter.default.post(name: .rebuildIndex, object: nil)

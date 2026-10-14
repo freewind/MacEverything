@@ -62,6 +62,8 @@ struct MacEverythingApp: App {
 
 extension Notification.Name {
     static let rebuildIndex = Notification.Name("rebuildIndex")
+    /// Content settings (ignore rules) changed — re-run the current query only.
+    static let contentSettingsChanged = Notification.Name("contentSettingsChanged")
 }
 
 class ContentSettingsWindowController {

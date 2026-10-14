@@ -446,6 +446,23 @@ class SearchViewModel: ObservableObject {
         }
     }
 
+    /// Re-run the current query so freshly saved ignore rules take effect
+    /// immediately. No index work: already-indexed records are simply filtered
+    /// out of the results.
+    func refreshAfterContentSettingsChange() {
+        bridge.cancelSession(Self.guiSessionId)
+        searchGeneration &+= 1
+        contentIndexedCount = bridge.contentIndexedFileCount()
+
+        if !searchText.isEmpty && !isContentSearch {
+            performSearch(searchText)
+        } else if isContentSearch && !contentKeyword.isEmpty {
+            performContentSearch(contentKeyword)
+        } else if showingRecent {
+            loadRecentFiles()
+        }
+    }
+
     private func performIndexRefresh() {
         totalRecords = bridge.liveRecordCount()
         isMonitoring = bridge.isMonitoring
