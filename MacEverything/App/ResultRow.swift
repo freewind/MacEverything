@@ -84,7 +84,7 @@ struct ResultRow: View {
                     .foregroundColor(.secondary)
             }
 
-            Text(TimeText.display(unixSeconds: item.modTime))
+            Text(TimeText.display(unixSeconds: item.usedTime ?? item.modTime))
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .monospacedDigit()
@@ -142,6 +142,7 @@ struct ResultRow: View {
 
     private func openFile(_ item: FileItem) {
         let fullPath = item.path + "/" + item.name
+        RecentFilesStore.shared.record(fullPath: fullPath)
         if item.type == 5 {
             let url = URL(fileURLWithPath: fullPath)
             NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
@@ -154,6 +155,7 @@ struct ResultRow: View {
 
     private func revealInFinder(_ item: FileItem) {
         let fullPath = item.path + "/" + item.name
+        RecentFilesStore.shared.record(fullPath: fullPath)
         NSWorkspace.shared.selectFile(fullPath, inFileViewerRootedAtPath: "")
     }
 

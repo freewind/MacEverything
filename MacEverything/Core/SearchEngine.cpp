@@ -826,7 +826,9 @@ SearchEngine::buildRecentCacheFromData(const std::vector<uint8_t>& types,
     pairs.reserve(types.size());
     for (size_t i = 0; i < types.size(); i++) {
         if (types[i] == 0) continue;
-        pairs.push_back({static_cast<time_t>(modTimes[i]), static_cast<uint32_t>(i)});
+        time_t modTime = static_cast<time_t>(modTimes[i]);
+        if (!isPlausibleModTime(modTime)) continue;
+        pairs.push_back({modTime, static_cast<uint32_t>(i)});
     }
     std::set<RecentEntry> cache;
     size_t k = std::min(pairs.size(), static_cast<size_t>(cacheSize));
@@ -845,10 +847,16 @@ void SearchEngine::rebuildRecentCache() {
 }
 
 void SearchEngine::addToRecentCache(uint32_t idx, time_t modTime) {
+    if (!isPlausibleModTime(modTime)) return;
     recentCache_.insert({modTime, idx});
     if (recentCache_.size() > kRecentCacheSize) {
         recentCache_.erase(std::prev(recentCache_.end()));
     }
+}
+
+bool SearchEngine::isPlausibleModTime(time_t modTime) {
+    constexpr time_t kFutureToleranceSec = 24 * 60 * 60;
+    return modTime <= std::time(nullptr) + kFutureToleranceSec;
 }
 
 void SearchEngine::removeFromRecentCache(uint32_t idx, time_t modTime) {

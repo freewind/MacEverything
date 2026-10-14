@@ -268,6 +268,12 @@ public:
     /// Accesses recentCache_ directly under the lock to avoid per-record copy overhead.
     std::vector<uint32_t> recentIndices(uint32_t count) const;
 
+    /// True when a modification time is usable for the Recent list. Build tools
+    /// stamp cache content years into the future to mark it immutable (Bazel
+    /// does this), and those values would otherwise dominate "recent". A one
+    /// day tolerance keeps ordinary clock skew from being treated as bogus.
+    static bool isPlausibleModTime(time_t modTime);
+
     /// Install the user's gitignore rules. Records whose absolute path matches
     /// are dropped from query() and recentIndices() results.
     void setIgnoreRules(std::shared_ptr<const IgnoreRules> rules);

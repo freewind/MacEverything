@@ -42,6 +42,7 @@
 		A1000036 /* ServiceEngine+Ignore.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A2000052; };
 		A1000037 /* IgnoreSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000053; };
 		A1000038 /* TimeText.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000054; };
+		A1000039 /* RecentFilesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000055; };
 		A100001A /* StringUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A2000028; };
 		A100001B /* Logger.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A200002A; };
 		A100001C /* AppLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200002B; };
@@ -116,6 +117,7 @@
 		A2000020 /* ContentSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentSettingsView.swift; sourceTree = "<group>"; };
 		A2000053 /* IgnoreSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IgnoreSettingsView.swift; sourceTree = "<group>"; };
 		A2000054 /* TimeText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeText.swift; sourceTree = "<group>"; };
+		A2000055 /* RecentFilesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentFilesStore.swift; sourceTree = "<group>"; };
 		A2000021 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A2000022 /* MacSearchBridge_Internal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MacSearchBridge_Internal.h; sourceTree = "<group>"; };
 		A2000023 /* MacSearchBridge+Content.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = "MacSearchBridge+Content.mm"; sourceTree = "<group>"; };
@@ -273,6 +275,7 @@
 				A2000020 /* ContentSettingsView.swift */,
 				A2000053 /* IgnoreSettingsView.swift */,
 				A2000054 /* TimeText.swift */,
+				A2000055 /* RecentFilesStore.swift */,
 				A2000025 /* IndexRefreshThrottle.swift */,
 				A2000026 /* TextHighlight.swift */,
 				A2000046 /* HighlightHint.swift */,
@@ -482,6 +485,7 @@
 				A1000014 /* ContentSettingsView.swift in Sources */,
 				A1000037 /* IgnoreSettingsView.swift in Sources */,
 				A1000038 /* TimeText.swift in Sources */,
+				A1000039 /* RecentFilesStore.swift in Sources */,
 				A1000016 /* MacSearchBridge+Content.mm in Sources */,
 				A1000017 /* SearchEnginePersistence.cpp in Sources */,
 				A1000018 /* IndexRefreshThrottle.swift in Sources */,

@@ -9,6 +9,9 @@ struct FileItem: Identifiable {
     let type: UInt8
     let size: UInt64
     let modTime: time_t
+    /// When the user last opened this file from MacEverything, if known.
+    /// Recent rows prefer it over modTime, because "recent" is about use.
+    let usedTime: time_t?
 }
 
 struct ContentFileItem: Identifiable {
@@ -307,7 +310,8 @@ class SearchViewModel: ObservableObject {
                 items.append(FileItem(
                     id: "\(r.path)/\(r.name)", index: 0,
                     name: r.name, path: r.path,
-                    type: r.type, size: r.size, modTime: r.modTime
+                    type: r.type, size: r.size, modTime: r.modTime,
+                    usedTime: nil
                 ))
             }
 
@@ -372,7 +376,8 @@ class SearchViewModel: ObservableObject {
                 newItems.append(FileItem(
                     id: "\(r.path)/\(r.name)", index: 0,
                     name: r.name, path: r.path,
-                    type: r.type, size: r.size, modTime: r.modTime
+                    type: r.type, size: r.size, modTime: r.modTime,
+                    usedTime: nil
                 ))
             }
 
@@ -393,24 +398,69 @@ class SearchViewModel: ObservableObject {
         let bridge = self.bridge
         let gen = searchGeneration
         recentTask = Task.detached { [weak self] in
-            // P-4: Use batch method — single engine lock, no NSNumber boxing
-            let results = bridge.recentResults(100)
+            let limit = 100
             var items: [FileItem] = []
-            items.reserveCapacity(results.count)
+            var seen = Set<String>()
+
+            // Files opened from this app come first: their modification time
+            // says nothing about when the user last used them.
+            for entry in RecentFilesStore.shared.recentEntries() {
+                guard items.count < limit else { break }
+                guard !seen.contains(entry.path) else { continue }
+                guard let item = Self.itemForUsedPath(entry.path, openedAt: entry.openedAt) else { continue }
+                seen.insert(entry.path)
+                items.append(item)
+            }
+
+            // Fill the rest from the index, newest modification time first.
+            let results = bridge.recentResults(UInt32(limit))
             for r in results {
-                guard !Task.isCancelled else { return }
+                guard items.count < limit else { break }
+                let fullPath = r.path + "/" + r.name
+                guard !seen.contains(fullPath) else { continue }
+                seen.insert(fullPath)
                 items.append(FileItem(
-                    id: "\(r.path)/\(r.name)", index: 0,
-                    name: r.name, path: r.path,
-                    type: r.type, size: r.size, modTime: r.modTime
+                    id: fullPath,
+                    index: 0,
+                    name: r.name,
+                    path: r.path,
+                    type: r.type,
+                    size: r.size,
+                    modTime: r.modTime,
+                    usedTime: nil
                 ))
             }
+
             await MainActor.run { [weak self] in
                 guard let self, self.searchGeneration == gen else { return }
                 self.displayItems = items
                 self.showingRecent = true
             }
         }
+    }
+
+    /// Build a Recent row for a path remembered by RecentFilesStore. Metadata is
+    /// re-read from disk so the row stays correct if the file changed.
+    nonisolated private static func itemForUsedPath(_ fullPath: String, openedAt: Date) -> FileItem? {
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: fullPath) else {
+            return nil
+        }
+
+        let url = URL(fileURLWithPath: fullPath)
+        let isDirectory = (attrs[.type] as? FileAttributeType) == .typeDirectory
+        let size = (attrs[.size] as? NSNumber)?.uint64Value ?? 0
+        let modTime = (attrs[.modificationDate] as? Date) ?? openedAt
+
+        return FileItem(
+            id: fullPath,
+            index: 0,
+            name: url.lastPathComponent,
+            path: url.deletingLastPathComponent().path,
+            type: isDirectory ? 2 : 1,
+            size: isDirectory ? 0 : size,
+            modTime: time_t(modTime.timeIntervalSince1970),
+            usedTime: time_t(openedAt.timeIntervalSince1970)
+        )
     }
 
     private func onIndexChanged() {
