@@ -793,29 +793,25 @@ std::vector<uint32_t> SearchEngine::recentIndices(uint32_t count) const {
     return filterIgnored(std::move(result));
 }
 
-void SearchEngine::setIgnoreMatcher(std::shared_ptr<const IgnoreMatcher> matcher,
-                                    std::string ignoreBasePath) {
+void SearchEngine::setIgnoreRules(std::shared_ptr<const IgnoreRules> rules) {
     std::lock_guard lock(ignoreMutex_);
-    ignoreMatcher_ = std::move(matcher);
-    ignoreBasePath_ = std::move(ignoreBasePath);
+    ignoreRules_ = std::move(rules);
 }
 
 std::vector<uint32_t> SearchEngine::filterIgnored(std::vector<uint32_t> indices) const {
-    std::shared_ptr<const IgnoreMatcher> matcher;
-    std::string basePath;
+    std::shared_ptr<const IgnoreRules> rules;
     {
         std::lock_guard lock(ignoreMutex_);
-        matcher = ignoreMatcher_;
-        basePath = ignoreBasePath_;
+        rules = ignoreRules_;
     }
-    if (!matcher || matcher->isEmpty() || indices.empty()) return indices;
+    if (!rules || rules->isEmpty() || indices.empty()) return indices;
 
     std::vector<uint32_t> kept;
     kept.reserve(indices.size());
     forEachRecordWithPath(indices, [&](uint32_t idx, const FileRecord& record, const std::string& path) {
         std::string fullPath = makeFullPath(path, record.name);
         bool isDir = (record.type == 2 || record.type == 5);
-        if (matcher->isIgnoredFullPath(basePath, fullPath, isDir)) return;
+        if (rules->isIgnored(fullPath, isDir)) return;
         kept.push_back(idx);
     });
     return kept;

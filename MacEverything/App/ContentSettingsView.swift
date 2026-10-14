@@ -82,7 +82,7 @@ struct ContentSettingsView: View {
                                 .stroke(Color.secondary.opacity(0.35), lineWidth: 1)
                         )
 
-                    Text("Examples: node_modules/   *.log   /build   !keep.log")
+                    Text("Examples: node_modules/   *.log   **/pnpm/store/   ~/tmp/   /build   !keep.log")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
 

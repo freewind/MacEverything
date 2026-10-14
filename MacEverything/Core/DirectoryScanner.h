@@ -1,6 +1,6 @@
 #pragma once
 #include "FileRecord.h"
-#include "IgnoreMatcher.h"
+#include "IgnoreRules.h"
 #include <vector>
 #include <queue>
 #include <unordered_set>
@@ -42,11 +42,8 @@ public:
     bool isCancelled() const { return cancelled_.load(std::memory_order_relaxed); }
     const Stats& getStats() const { return stats_; }
 
-    /// Exclude paths matching gitignore-style rules. `ignoreBasePath` is the
-    /// root the patterns are relative to (usually the app's scan root); pass an
-    /// empty string to use the scanned root itself. Call before scan().
-    void setIgnoreMatcher(std::shared_ptr<const IgnoreMatcher> matcher,
-                          std::string ignoreBasePath = std::string());
+    /// Exclude paths matching the user's gitignore rules. Call before scan().
+    void setIgnoreRules(std::shared_ptr<const IgnoreRules> rules);
 
     // Move all per-thread results into a single flat vector. Call after scan completes.
     std::vector<FileRecord> takeResults();
@@ -62,8 +59,7 @@ private:
     std::unordered_set<InodeKey, InodeKeyHash> visitedDirs_;
     std::mutex dedupMutex_;
     dev_t rootDevId_{0};  // device ID of root path — skip cross-mount directories
-    std::shared_ptr<const IgnoreMatcher> ignoreMatcher_;
-    std::string ignoreBasePath_;
+    std::shared_ptr<const IgnoreRules> ignoreRules_;
 
     std::vector<std::vector<FileRecord>> threadResults_;
     Stats stats_;

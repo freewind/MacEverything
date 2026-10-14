@@ -36,11 +36,9 @@ void ContentIndex::setMaxFileSize(uint64_t bytes) {
     maxFileSize_ = bytes;
 }
 
-void ContentIndex::setIgnoreMatcher(std::shared_ptr<const IgnoreMatcher> matcher,
-                                    std::string ignoreBasePath) {
+void ContentIndex::setIgnoreRules(std::shared_ptr<const IgnoreRules> rules) {
     std::unique_lock lock(mutex_);
-    ignoreMatcher_ = std::move(matcher);
-    ignoreBasePath_ = std::move(ignoreBasePath);
+    ignoreRules_ = std::move(rules);
 }
 
 std::vector<std::string> ContentIndex::getExtensions() const {
@@ -261,8 +259,8 @@ bool ContentIndex::indexFile(uint32_t fileIndex, const std::string& fullPath, ti
     // Check extension and user ignore rules (read lock for config)
     {
         std::shared_lock lock(mutex_);
-        if (ignoreMatcher_ && !ignoreMatcher_->isEmpty() &&
-            ignoreMatcher_->isIgnoredFullPath(ignoreBasePath_, fullPath, false)) {
+        if (ignoreRules_ && !ignoreRules_->isEmpty() &&
+            ignoreRules_->isIgnored(fullPath, false)) {
             return false;
         }
         // Extract filename from path

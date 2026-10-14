@@ -319,7 +319,7 @@ void ServiceEngine::rescanSubtree(const std::string& dir) {
         if (shuttingDown_.load(std::memory_order_relaxed)) return;
 
         auto scanner = std::make_shared<DirectoryScanner>();
-        scanner->setIgnoreMatcher(ignoreMatcherSnapshot(), config_.scanRoot);
+        scanner->setIgnoreRules(ignoreRules());
         scanner->scan(dir);
         auto freshRecords = scanner->takeResults();
 

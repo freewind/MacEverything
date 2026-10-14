@@ -16,31 +16,55 @@ constexpr const char* kIgnoreKey = "ignore";
 //  Ignore rules (gitignore syntax)
 // ═══════════════════════════════════════════════════════
 
-std::shared_ptr<const IgnoreMatcher> ServiceEngine::ignoreMatcherSnapshot() {
+std::shared_ptr<IgnoreRules> ServiceEngine::ensureIgnoreRules() {
+    {
+        std::shared_lock lock(ignoreMutex_);
+        if (ignoreRules_) return ignoreRules_;
+    }
+
+    auto rules = std::make_shared<IgnoreRules>();
+    if (config_.cachePath.empty()) {
+        LOG_WARN("ServiceEngine", "No cache path configured — ignore rules are unavailable");
+    } else if (!rules->init(config_.cachePath + "/ignore-rules.git")) {
+        LOG_WARN("ServiceEngine", "Failed to prepare the ignore rules repository");
+    }
+
+    std::unique_lock lock(ignoreMutex_);
+    if (!ignoreRules_) {
+        ignoreRules_ = rules;
+        if (!ignorePatterns_.empty()) {
+            ignoreRules_->setRuleLines(ignorePatterns_);
+        }
+    }
+    return ignoreRules_;
+}
+
+std::shared_ptr<const IgnoreRules> ServiceEngine::ignoreRules() {
     std::shared_lock lock(ignoreMutex_);
-    return ignoreMatcher_;
+    return ignoreRules_;
 }
 
 void ServiceEngine::applyIgnoreToEngine(const std::shared_ptr<SearchEngine>& engine) {
     if (!engine) return;
-    engine->setIgnoreMatcher(ignoreMatcherSnapshot(), config_.scanRoot);
+    engine->setIgnoreRules(ensureIgnoreRules());
 }
 
 void ServiceEngine::applyIgnoreToContentIndex(const std::shared_ptr<ContentIndex>& contentIndex) {
     if (!contentIndex) return;
-    contentIndex->setIgnoreMatcher(ignoreMatcherSnapshot(), config_.scanRoot);
+    contentIndex->setIgnoreRules(ensureIgnoreRules());
 }
 
 void ServiceEngine::setIgnorePatterns(const std::vector<std::string>& patterns) {
-    auto matcher = IgnoreMatcher::fromLines(patterns);
     {
         std::unique_lock lock(ignoreMutex_);
         ignorePatterns_ = patterns;
-        ignoreMatcher_ = matcher;
     }
 
-    LOG_INFO("ServiceEngine", "Ignore rules updated: " << matcher->ruleCount()
-             << " active pattern(s)");
+    auto rules = ensureIgnoreRules();
+    rules->setRuleLines(patterns);
+
+    LOG_INFO("ServiceEngine", "Ignore rules updated: " << rules->ruleCount()
+             << " configured line(s)");
 
     applyIgnoreToEngine(safeEngine());
     applyIgnoreToContentIndex(safeContentIndex());
@@ -52,9 +76,9 @@ std::vector<std::string> ServiceEngine::getIgnorePatterns() {
 }
 
 bool ServiceEngine::isPathIgnored(const std::string& fullPath, bool isDir) {
-    auto matcher = ignoreMatcherSnapshot();
-    if (!matcher || matcher->isEmpty()) return false;
-    return matcher->isIgnoredFullPath(config_.scanRoot, fullPath, isDir);
+    auto rules = ignoreRules();
+    if (!rules || rules->isEmpty()) return false;
+    return rules->isIgnored(fullPath, isDir);
 }
 
 // ═══════════════════════════════════════════════════════

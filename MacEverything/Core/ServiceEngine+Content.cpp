@@ -204,7 +204,7 @@ void ServiceEngine::rebuildContentIndex() {
         auto newIndex = std::make_shared<ContentIndex>();
         newIndex->setExtensions(exts);
         newIndex->setMaxFileSize(maxSize);
-        newIndex->setIgnoreMatcher(ignoreMatcherSnapshot(), config_.scanRoot);
+        newIndex->setIgnoreRules(ignoreRules());
 
         std::unique_lock lock(contentMutex_);
         contentIndex_ = newIndex;

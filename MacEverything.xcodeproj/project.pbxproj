@@ -38,7 +38,7 @@
 		A1000032 /* HighlightHint.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000046; };
 		A1000033 /* SearchEngineV6.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A2000047; };
 		A1000034 /* FlatIndexWriter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A2000049; };
-		A1000035 /* IgnoreMatcher.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A2000051; };
+		A1000035 /* IgnoreRules.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A2000051; };
 		A1000036 /* ServiceEngine+Ignore.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A2000052; };
 		A100001A /* StringUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A2000028; };
 		A100001B /* Logger.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A200002A; };
@@ -138,8 +138,8 @@
 		A2000036 /* ServiceEngine.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ServiceEngine.cpp; sourceTree = "<group>"; };
 		A2000037 /* ServiceEngine+FSEvents.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "ServiceEngine+FSEvents.cpp"; sourceTree = "<group>"; };
 		A2000038 /* ServiceEngine+Content.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "ServiceEngine+Content.cpp"; sourceTree = "<group>"; };
-		A2000050 /* IgnoreMatcher.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IgnoreMatcher.h; sourceTree = "<group>"; };
-		A2000051 /* IgnoreMatcher.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IgnoreMatcher.cpp; sourceTree = "<group>"; };
+		A2000050 /* IgnoreRules.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IgnoreRules.h; sourceTree = "<group>"; };
+		A2000051 /* IgnoreRules.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IgnoreRules.cpp; sourceTree = "<group>"; };
 		A2000052 /* ServiceEngine+Ignore.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "ServiceEngine+Ignore.cpp"; sourceTree = "<group>"; };
 		A2000039 /* SearchEngineQuery.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = SearchEngineQuery.cpp; sourceTree = "<group>"; };
 		A200003A /* SearchEngineIndex.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = SearchEngineIndex.cpp; sourceTree = "<group>"; };
@@ -312,8 +312,8 @@
 				A200001C /* ContentIndex.cpp */,
 				A200001D /* ContentIndexPersistence.h */,
 				A200001E /* ContentIndexPersistence.cpp */,
-				A2000050 /* IgnoreMatcher.h */,
-				A2000051 /* IgnoreMatcher.cpp */,
+				A2000050 /* IgnoreRules.h */,
+				A2000051 /* IgnoreRules.cpp */,
 				A2000024 /* SearchEnginePersistence.cpp */,
 				A2000027 /* StringUtils.h */,
 				A2000028 /* StringUtils.cpp */,
@@ -492,7 +492,7 @@
 				A1000022 /* ServiceEngine.cpp in Sources */,
 				A1000023 /* ServiceEngine+FSEvents.cpp in Sources */,
 				A1000024 /* ServiceEngine+Content.cpp in Sources */,
-				A1000035 /* IgnoreMatcher.cpp in Sources */,
+				A1000035 /* IgnoreRules.cpp in Sources */,
 				A1000036 /* ServiceEngine+Ignore.cpp in Sources */,
 				D1000001 /* MCPConfigManager.swift in Sources */,
 				A1000027 /* QueryParser.cpp in Sources */,
@@ -598,13 +598,16 @@
 					"$(SRCROOT)/MacEverything/Bridge",
 					"/usr/local/opt/re2/include",
 					"/usr/local/opt/abseil/include",
+					"/usr/local/include",
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"/usr/local/opt/re2/lib",
 					"/usr/local/opt/abseil/lib",
+					"/usr/local/lib",
 				);
 				OTHER_LDFLAGS = (
 					"-lre2",
+					"-lgit2",
 				);
 			};
 			name = Debug;
@@ -631,13 +634,16 @@
 					"$(SRCROOT)/MacEverything/Bridge",
 					"/usr/local/opt/re2/include",
 					"/usr/local/opt/abseil/include",
+					"/usr/local/include",
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"/usr/local/opt/re2/lib",
 					"/usr/local/opt/abseil/lib",
+					"/usr/local/lib",
 				);
 				OTHER_LDFLAGS = (
 					"-lre2",
+					"-lgit2",
 				);
 			};
 			name = Release;

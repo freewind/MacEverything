@@ -1,7 +1,7 @@
 #pragma once
 #include "FileRecord.h"
 #include "ContentIndex.h" // for Trigram type and extractTrigrams/makeTrigram
-#include "IgnoreMatcher.h"
+#include "IgnoreRules.h"
 #include "StringPool.h"
 #include "SIMDSearch.h"
 #include <vector>
@@ -268,10 +268,9 @@ public:
     /// Accesses recentCache_ directly under the lock to avoid per-record copy overhead.
     std::vector<uint32_t> recentIndices(uint32_t count) const;
 
-    /// Install the gitignore-style ignore matcher. Records whose full path is
-    /// under `ignoreBasePath` and matches the rules are dropped from query()
-    /// and recentIndices() results. Passing nullptr clears the filter.
-    void setIgnoreMatcher(std::shared_ptr<const IgnoreMatcher> matcher, std::string ignoreBasePath);
+    /// Install the user's gitignore rules. Records whose absolute path matches
+    /// are dropped from query() and recentIndices() results.
+    void setIgnoreRules(std::shared_ptr<const IgnoreRules> rules);
 
     /// Remove indices whose full path matches the ignore rules. Thread-safe;
     /// a no-op (and cheap) when no matcher is installed.
@@ -398,11 +397,10 @@ private:
     std::atomic<uint32_t> liveCount_{0};
     mutable std::shared_mutex mutex_;
 
-    // User ignore rules (gitignore syntax). Guarded by ignoreMutex_ because
-    // matchers are swapped at runtime from the settings UI.
+    // User ignore rules (gitignore syntax). Guarded by ignoreMutex_ because the
+    // rule set is swapped at runtime from the settings UI.
     mutable std::mutex ignoreMutex_;
-    std::shared_ptr<const IgnoreMatcher> ignoreMatcher_;
-    std::string ignoreBasePath_;
+    std::shared_ptr<const IgnoreRules> ignoreRules_;
 
     // Trigram inverted index for fast filename search
     std::unordered_map<Trigram, std::vector<uint32_t>> nameTrigramIndex_; // trigram -> record indices

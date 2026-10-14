@@ -5,7 +5,7 @@
 #include "IndexPersistence.h"
 #include "FileSystemWatcher.h"
 #include "HttpServer.h"
-#include "IgnoreMatcher.h"
+#include "IgnoreRules.h"
 #include "InstanceLock.h"
 #include "RescanDebounce.h"
 #include <memory>
@@ -95,7 +95,9 @@ public:
 
 private:
     // ── Ignore helpers (ServiceEngine+Ignore.cpp) ──
-    std::shared_ptr<const IgnoreMatcher> ignoreMatcherSnapshot();
+    /// Shared gitignore rule set; created on first use.
+    std::shared_ptr<IgnoreRules> ensureIgnoreRules();
+    std::shared_ptr<const IgnoreRules> ignoreRules();
     void applyIgnoreToEngine(const std::shared_ptr<SearchEngine>& engine);
     void applyIgnoreToContentIndex(const std::shared_ptr<ContentIndex>& contentIndex);
 
@@ -148,7 +150,7 @@ private:
 
     // ── Ignore rules ──
     mutable std::shared_mutex ignoreMutex_;
-    std::shared_ptr<const IgnoreMatcher> ignoreMatcher_;
+    std::shared_ptr<IgnoreRules> ignoreRules_;
     std::vector<std::string> ignorePatterns_;
 
     // ── Dispatch queues & groups ──
