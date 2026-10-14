@@ -83,6 +83,11 @@ struct ResultRow: View {
                     .font(.subheadline)
                     .foregroundColor(.secondary)
             }
+
+            Text(TimeText.display(unixSeconds: item.modTime))
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .monospacedDigit()
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 6)
